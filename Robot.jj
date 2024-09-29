@@ -1,0 +1,219 @@
+/*
+Gramatica para el Robot:
+Autor: Alejandro Arango
+Modificado por: Silvia Takahashi
+Modificado por: Juan Pablo Morales.
+Agregadas producciones para manejar globos
+Modificado por Silvia Takahashi
+
+
+ **/
+
+
+options 
+{
+    LOOKAHEAD=1; 
+    IGNORE_CASE=true;
+    STATIC = false;
+}
+
+PARSER_BEGIN(Robot)
+
+package uniandes.lym.robot.control;
+
+import uniandes.lym.robot.kernel.*;
+import uniandes.lym.robot.view.Console;
+
+import java.awt.Point;
+import java.io.*;
+import java.util.Vector;
+import java.util.LinkedList;
+
+@SuppressWarnings("serial")
+public class Robot 
+{
+    private RobotWorldDec world;
+
+    void setWorld(RobotWorld w) {
+        world = (RobotWorldDec) w;    
+    }
+
+    String salida = new String();
+}
+PARSER_END(Robot)
+
+SKIP:
+{
+    " "
+    | "\r"
+    | "\t"
+    | "\n"
+}
+
+TOKEN: /* Nombres de Comandos */
+{
+    <MOV: "Mov">
+    | <RIGHT: "RIGHT">
+    | <PUT: "Put">
+    | <PICK: "Pick">
+    | <POP: "Pop">
+    | <GO: "GO">
+    | <HOP: "HOP">
+    | <TURN_TO_MY: "turnToMy">
+    | <TURN_TO_THE: "turnToThe">
+    | <WALK: "walk">
+    | <JUMP: "jump">
+    | <DROP: "drop">
+    | <GRAB: "grab">
+    | <LETGO: "letGo">
+    | <MOVES: "moves">
+    | <NOP: "nop">
+    | <SAFE_EXE: "safeExe">
+    |  <LEFT: "left">
+    | <BACK: "back">
+    | <NORTH: "north">
+    | <SOUTH: "south">
+    | <EAST: "east">
+    | <WEST: "west">
+}
+
+TOKEN:
+{
+    <BALLOONS: "BALLOONS">
+    | <CHIPS: "CHIPS">
+}
+
+TOKEN:
+{
+    <NUM: (<DIGIT>)+>
+    | <#DIGIT: ["0"-"9"]>
+}
+
+TOKEN:
+{
+    <IF: "if">
+    | <THEN: "then">
+    | <ELSE: "else">
+    | <FI: "fi">
+    | <DO: "do">
+    | <OD: "od">
+    | <REP: "rep">
+    | <TIMES: "times">
+    | <PER: "per">
+    | <NOT: "not">
+    | <IS_BLOCKED: "isBlocked?">
+    | <IS_FACING: "isFacing?">
+    | <ZERO: "zero?">
+    
+}
+
+boolean command(Console sistema):
+{    
+    int x, y;
+    salida = new String();    
+}
+{
+    (
+        (
+            <RIGHT> "(" ")" {world.turnRight(); salida = "Command: Turnright";}
+        | <MOV> "(" x=num() ")" {world.moveForward(x, false); salida = "Command: Moveforward";}
+        | <HOP> "(" x=num() ")" {world.moveForward(x, true); salida = "Command: Jumpforward";}
+        | <GO> "(" x=num() "," y=num() ")" {world.setPosition(x, y); salida = "Command: GO";}
+        | <PUT> "(" put() ")"
+        | <PICK> "(" get() ")"
+        | <POP> "(" x=num() ")" {world.popBalloons(x); salida = "Command: Pop";}
+        | <TURN_TO_MY> "(" direction() ")" {world.turnToMy(direction); salida = "Command: TurnToMy";}
+        | <TURN_TO_THE> "(" orientation() ")" {world.turnToThe(orientation); salida = "Command: TurnToThe";}
+        | <WALK> "(" x=num() ")" {world.walk(x); salida = "Command: Walk";}
+        | <JUMP> "(" x=num() ")" {world.jump(x); salida = "Command: Jump";}
+        | <DROP> "(" x=num() ")" {world.drop(x); salida = "Command: Drop";}
+        | <GRAB> "(" x=num() ")" {world.grab(x); salida = "Command: Grab";}
+        | <LETGO> "(" x=num() ")" {world.letGo(x); salida = "Command: LetGo";}
+        | <MOVES> "(" directions() ")" {world.moves(directions); salida = "Command: Moves";}
+        | <NOP> "(" ")" {world.nop(); salida = "Command: Nop";}
+        | <SAFE_EXE> "(" command() ")" {world.safeExe(command); salida = "Command: SafeExe";}
+        ) ";"
+        {
+            try {
+                Thread.sleep(900);
+            } catch (InterruptedException e) {
+                System.err.format("IOException: %s%n", e);
+            }
+            sistema.printOutput(salida);
+            return true;
+        }
+    )+
+    | <EOF> {return false;}
+}
+
+void put():
+{
+    int f = 1;    
+}
+{
+    ( <CHIPS> "," f=num() {world.putChips(f); salida = "Command: Put Chips";} )
+    | ( <BALLOONS> "," f=num() {world.putBalloons(f); salida = "Command: Put Balloons";} )
+}
+
+void get():
+{
+    int f = 1;    
+}
+{
+    ( <CHIPS> "," f=num() {world.pickChips(f); salida = "Command: Pick Chips";} )
+    | ( <BALLOONS> "," f=num() {world.grabBalloons(f); salida = "Command: Pick Balloons";} )
+}
+
+void direction():
+{
+    String direction;
+}
+{
+    <LEFT> { direction = "left"; }
+    | <RIGHT> { direction = "right"; }
+    | <BACK> { direction = "back"; }
+    { return direction; }
+}
+
+void orientation():
+{
+    String orientation;
+}
+{
+    <NORTH> { orientation = "north"; }
+    | <SOUTH> { orientation = "south"; }
+    | <EAST> { orientation = "east"; }
+    | <WEST> { orientation = "west"; }
+    { return orientation; }
+}
+
+
+void directions():
+{
+    List<String> directions = new ArrayList<>();
+}
+{
+    direction() ("," direction())* { directions.add(direction); }
+}
+
+/**
+ * Unsigned decimal number
+ * @return the corresponding value of the string
+ * @error corresponding value is too large
+ */
+int num() throws Error:
+{    
+    int total = 1;
+}
+{
+    <NUM>
+    {
+        try {
+            total = Integer.parseInt(token.image);
+        } catch (NumberFormatException ee) {
+            throw new Error("Number out of bounds: " + token.image + " !!");
+        }
+        return total;
+    }
+}
+
